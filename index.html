@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Brick Finder</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Brick Finder">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f5c400">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<style>
+/* Layout: one column, phone first. Sticky header, three views, fixed bottom tab bar. */
+:root{
+  --bg:#eef0f1; --surface:#ffffff; --sunk:#e2e5e7; --line:#cfd4d7;
+  --fg:#1b2a34; --muted:#5d6b74;
+  --accent:#f5c400; --on-accent:#1b2a34;
+  --good:#1f7a3d; --good-bg:#dff3e5; --warn:#8a5a00; --warn-bg:#fdefc8; --bad:#a3281f; --bad-bg:#fbe1de;
+  --r:14px;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#12181c; --surface:#1c252b; --sunk:#263138; --line:#34424b;
+  --fg:#eef1f3; --muted:#9aa8b1;
+  --good:#7ad69a; --good-bg:#173524; --warn:#f2cf6b; --warn-bg:#3b2f0d; --bad:#f39a92; --bad-bg:#3f1a17;
+  color-scheme:dark;
+}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font-size:16px;line-height:1.4;-webkit-text-size-adjust:100%;
+  padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))}
+[hidden]{display:none!important}
+img{max-width:100%}
+button,input,textarea{font:inherit;color:inherit}
+header{position:sticky;top:0;z-index:5;background:var(--accent);color:var(--on-accent);
+  padding:calc(10px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));
+  display:flex;align-items:center;gap:10px}
+header .studs{width:34px;height:34px;border-radius:7px;background:var(--on-accent);
+  background-image:radial-gradient(circle,var(--accent) 0 5.5px,transparent 6px);background-size:17px 17px}
+header h1{font-size:19px;margin:0;font-weight:800;letter-spacing:-.01em}
+header small{margin-left:auto;font-size:12.5px;font-weight:600;opacity:.8;text-align:right}
+main{max-width:640px;margin:0 auto;padding:14px max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px));
+  display:flex;flex-direction:column;gap:14px}
+section.view{display:flex;flex-direction:column;gap:14px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:6px 0 -6px;font-weight:700}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px}
+.row{display:flex;gap:10px;align-items:center}
+.grow{flex:1;min-width:0}
+.btn{appearance:none;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:12px 14px;font-weight:650;
+  min-height:46px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;text-align:center}
+.btn.primary{background:var(--accent);color:var(--on-accent);border-color:transparent}
+.btn.small{min-height:36px;padding:6px 12px;font-size:14px;border-radius:10px}
+.btn.danger{color:var(--bad)}
+.btn:disabled{opacity:.5}
+.btn:focus-visible,input:focus-visible,textarea:focus-visible,.pick:focus-visible,.chip:focus-visible,nav button:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
+.shoot{font-size:18px;min-height:64px;width:100%}
+input[type=text],input[type=search],input[type=password],textarea{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:11px 12px;font-size:16px}
+textarea{min-height:84px;resize:vertical}
+.muted{color:var(--muted);font-size:14px}
+.note{border-radius:10px;padding:10px 12px;font-size:14.5px}
+.note.good{background:var(--good-bg);color:var(--good)} .note.warn{background:var(--warn-bg);color:var(--warn)} .note.bad{background:var(--bad-bg);color:var(--bad)}
+.note b{font-weight:750}
+.thumb{width:56px;height:56px;border-radius:9px;background:#fff;border:1px solid var(--line);object-fit:contain;flex:none}
+.thumb.big{width:84px;height:84px}
+.pick{appearance:none;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:8px;display:flex;gap:10px;align-items:center;text-align:left;width:100%;cursor:pointer}
+.pick[aria-pressed=true]{border-color:var(--fg);box-shadow:inset 0 0 0 1px var(--fg)}
+.pick .t{font-weight:650;overflow-wrap:anywhere}
+.pick .s{font-size:13px;color:var(--muted)}
+.pill{display:inline-block;font-size:12px;font-weight:700;border-radius:99px;padding:2px 8px;white-space:nowrap}
+.pill.good{background:var(--good-bg);color:var(--good)} .pill.off{background:var(--sunk);color:var(--muted)} .pill.warn{background:var(--warn-bg);color:var(--warn)}
+.list{display:flex;flex-direction:column;gap:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{appearance:none;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 12px 6px 7px;display:inline-flex;align-items:center;gap:7px;font-size:14px;font-weight:600;cursor:pointer;min-height:36px}
+.chip[aria-pressed=true]{border-color:var(--fg);box-shadow:inset 0 0 0 1px var(--fg)}
+.chip i{width:20px;height:20px;border-radius:50%;border:1px solid rgba(0,0,0,.35);flex:none}
+.chip.all{padding-left:12px}
+.setrow{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px;background:var(--surface)}
+.setrow .t{font-weight:650;overflow-wrap:anywhere}
+.setrow .s{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.spin{width:22px;height:22px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--fg);animation:sp .8s linear infinite;flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:3s}}
+nav{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);
+  display:flex;padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+nav button{flex:1;appearance:none;border:0;background:none;padding:8px 4px;border-radius:10px;font-weight:650;font-size:13.5px;color:var(--muted);
+  display:flex;flex-direction:column;align-items:center;gap:2px;min-height:50px;cursor:pointer}
+nav button b{font-size:18px;line-height:1;font-weight:800;font-variant-numeric:tabular-nums}
+nav button[aria-current=page]{color:var(--fg);background:var(--sunk)}
+details summary{cursor:pointer;font-weight:650}
+a{color:inherit}
+</style>
+</head>
+<body>
+<header>
+  <div class="studs" aria-hidden="true"></div>
+  <h1>Brick Finder</h1>
+  <small id="hdrStat"></small>
+</header>
+
+<main>
+<!-- ───────── Identify ───────── -->
+<section class="view" id="v-identify">
+  <div class="note warn" id="needSets" hidden>No sets yet. Add the sets you own in the <b>Sets</b> tab first, then photograph a piece.</div>
+  <label class="btn primary shoot" for="cam">Photograph a piece</label>
+  <input id="cam" type="file" accept="image/*" capture="environment" hidden>
+  <div class="row">
+    <label class="btn grow" for="lib">Choose from photos</label>
+    <input id="lib" type="file" accept="image/*" hidden>
+  </div>
+  <p class="muted" style="margin:0">One piece per photo, on a plain background, filling most of the frame.</p>
+
+  <div class="card" id="scan" hidden>
+    <div class="row">
+      <img class="thumb big" id="scanImg" alt="Your photo">
+      <div class="grow" id="scanMsg"></div>
+    </div>
+  </div>
+
+  <div id="cands" hidden>
+    <h2>Which piece is it?</h2>
+    <div class="list" id="candList" style="margin-top:14px"></div>
+  </div>
+
+  <div id="colours" hidden>
+    <h2>Colour</h2>
+    <div class="chips" id="colourChips" style="margin-top:14px"></div>
+  </div>
+
+  <div id="matches" hidden>
+    <h2>Belongs to</h2>
+    <div id="verdict" class="note" style="margin-top:14px"></div>
+    <div class="list" id="matchList" style="margin-top:8px"></div>
+  </div>
+
+  <details class="card">
+    <summary>Search by number or name instead</summary>
+    <input id="manual" type="search" placeholder="e.g. 3001 or “slope 45”" autocomplete="off" autocapitalize="off">
+    <p class="muted" style="margin:0">Searches only pieces that occur in your sets.</p>
+  </details>
+</section>
+
+<!-- ───────── Sets ───────── -->
+<section class="view" id="v-sets" hidden>
+  <div class="card" id="keyCard">
+    <label for="apiKey"><b>Rebrickable API key</b></label>
+    <input id="apiKey" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="32-character key">
+    <div class="row"><button class="btn primary grow" id="saveKey">Save key</button></div>
+    <p class="muted" style="margin:0">Free: create an account on rebrickable.com, then Profile → Settings → API → Generate new API key. The key stays on this device.</p>
+    <div id="keyMsg"></div>
+  </div>
+
+  <div class="card">
+    <label for="setQ"><b>Add a set</b></label>
+    <div class="row">
+      <input class="grow" id="setQ" type="search" placeholder="Set number or name" autocomplete="off">
+      <button class="btn primary" id="setGo">Find</button>
+    </div>
+    <div id="setMsg"></div>
+    <div class="list" id="setResults"></div>
+    <details>
+      <summary>Add many at once</summary>
+      <textarea id="bulk" placeholder="Set numbers separated by spaces, commas or lines, e.g. 75192 10294 42115" style="margin-top:10px"></textarea>
+      <div class="row" style="margin-top:8px"><button class="btn grow" id="bulkGo">Add all</button></div>
+      <div id="bulkMsg" style="margin-top:8px"></div>
+    </details>
+  </div>
+
+  <h2 id="ownedHead">Your sets</h2>
+  <div class="list" id="ownedList"></div>
+  <div class="card" id="backup" hidden>
+    <b>Backup</b>
+    <p class="muted" style="margin:0">Your set numbers. Keep a copy; paste it into “Add many at once” to restore on another device.</p>
+    <textarea id="exportBox" readonly></textarea>
+    <div class="row"><button class="btn grow" id="copyExport">Copy</button></div>
+  </div>
+</section>
+
+<!-- ───────── Found ───────── -->
+<section class="view" id="v-found" hidden>
+  <p class="muted" id="foundEmpty" style="margin:0">Pieces you assign to a set are collected here, grouped by set. Sets that already have found pieces are ranked first when a later piece is ambiguous.</p>
+  <div id="foundList" class="list" style="gap:14px"></div>
+  <button class="btn danger" id="clearFound" hidden>Clear all found pieces</button>
+</section>
+</main>
+
+<nav>
+  <button data-view="identify" aria-current="page"><b>◎</b>Identify</button>
+  <button data-view="sets"><b id="navSets">0</b>Sets</button>
+  <button data-view="found"><b id="navFound">0</b>Found</button>
+</nav>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+function h(tag, attrs, ...kids){
+  const e = document.createElement(tag);
+  for (const k in (attrs||{})){
+    const v = attrs[k];
+    if (v == null || v === false || v === '') continue;
+    if (k === 'class') e.className = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (k === 'style') e.style.cssText = v;
+    else e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat()){ if (c == null || c === false) continue; e.append(c.nodeType ? c : document.createTextNode(String(c))); }
+  return e;
+}
+const ls = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ───────── storage (IndexedDB, memory fallback) ───────── */
+const store = {
+  db: null, mem: {sets: new Map(), meta: new Map()},
+  async open(){
+    try{
+      this.db = await new Promise((res, rej) => {
+        const r = indexedDB.open('brickfinder', 1);
+        r.onupgradeneeded = () => { r.result.createObjectStore('sets', {keyPath:'set_num'}); r.result.createObjectStore('meta'); };
+        r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+      });
+    }catch(e){ this.db = null; }
+    try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(e){}
+  },
+  tx(name, mode, fn){
+    return new Promise((res, rej) => {
+      const t = this.db.transaction(name, mode); const rq = fn(t.objectStore(name));
+      t.oncomplete = () => res(rq && rq.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    });
+  },
+  async allSets(){ return this.db ? this.tx('sets','readonly', s => s.getAll()) : [...this.mem.sets.values()]; },
+  async putSet(v){ if (this.db) await this.tx('sets','readwrite', s => s.put(v)); else this.mem.sets.set(v.set_num, v); },
+  async delSet(k){ if (this.db) await this.tx('sets','readwrite', s => s.delete(k)); else this.mem.sets.delete(k); },
+  async getMeta(k){ return this.db ? this.tx('meta','readonly', s => s.get(k)) : this.mem.meta.get(k); },
+  async putMeta(k, v){ if (this.db) await this.tx('meta','readwrite', s => s.put(v, k)); else this.mem.meta.set(k, v); }
+};
+
+/* ───────── state ───────── */
+const S = {
+  key: ls.get('bf.key', ''),
+  sets: new Map(),            // set_num → {set_num,name,year,num_parts,img,rows}
+  finds: ls.get('bf.finds', []), // {id,part,name,img,color,set}
+  colors: new Map(),          // rebrickable color id → {name,rgb}
+  blColor: new Map(),         // bricklink color id → rebrickable color id
+  parts: new Map(),           // part_num → {num,name,img,bl:[],occ:[{set,color,qty,spare}]}
+  byBL: new Map(),            // bricklink id → Set(part_num)
+  byBase: new Map(),          // leading digits → Set(part_num)
+  cur: null                   // current identification {cands, sel, color, predicted}
+};
+// rows: [part_num, name, img, blIds[], colorId, qty, isSpare]
+function reindex(){
+  S.parts.clear(); S.byBL.clear(); S.byBase.clear();
+  const add = (m, k, v) => { k = String(k).toLowerCase(); if (!m.has(k)) m.set(k, new Set()); m.get(k).add(v); };
+  for (const st of S.sets.values()){
+    for (const r of st.rows){
+      let p = S.parts.get(r[0]);
+      if (!p){
+        p = {num:r[0], name:r[1], img:r[2], bl:r[3]||[], occ:[]}; S.parts.set(r[0], p);
+        add(S.byBL, r[0], r[0]);
+        for (const b of p.bl) add(S.byBL, b, r[0]);
+        const base = (/^\d+/.exec(r[0])||[])[0]; if (base) add(S.byBase, base, r[0]);
+      }
+      p.occ.push({set:st.set_num, color:r[4], qty:r[5], spare:!!r[6]});
+    }
+  }
+}
+function findsBySet(){ const m = new Map(); for (const f of S.finds) m.set(f.set, (m.get(f.set)||0)+1); return m; }
+
+/* ───────── Rebrickable API ───────── */
+let rbChain = Promise.resolve(), rbLast = 0;
+function rb(path){
+  const run = async () => {
+    for (let attempt = 0; attempt < 4; attempt++){
+      const wait = rbLast + 1100 - Date.now(); if (wait > 0) await sleep(wait);
+      rbLast = Date.now();
+      let res;
+      try{ res = await fetch(path.startsWith('http') ? path : 'https://rebrickable.com/api/v3/lego/' + path, {headers:{Authorization:'key ' + S.key, Accept:'application/json'}}); }
+      catch(e){ throw new Error('No connection to Rebrickable. Check your internet connection.'); }
+      if (res.status === 429){ await sleep(2500 * (attempt + 1)); continue; }
+      if (res.status === 401 || res.status === 403) throw new Error('Rebrickable rejected the API key. Check it in the Sets tab.');
+      if (res.status === 404){ const e = new Error('Not found'); e.notFound = true; throw e; }
+      if (!res.ok) throw new Error('Rebrickable error ' + res.status + '. Try again in a moment.');
+      return res.json();
+    }
+    throw new Error('Rebrickable is rate-limiting requests. Wait a minute and try again.');
+  };
+  const p = rbChain.then(run, run); rbChain = p.catch(() => {}); return p;
+}
+async function loadColors(force){
+  let list = !force && await store.getMeta('colors');
+  if (!list){
+    if (!S.key) return;
+    const d = await rb('colors/?page_size=1000');
+    list = d.results.map(c => [c.id, c.name, c.rgb, ((c.external_ids||{}).BrickLink||{}).ext_ids || []]);
+    await store.putMeta('colors', list);
+  }
+  S.colors.clear(); S.blColor.clear();
+  for (const [id, name, rgb, bl] of list){ S.colors.set(id, {name, rgb}); for (const b of bl) if (!S.blColor.has(String(b))) S.blColor.set(String(b), id); }
+}
+const normSet = s => { s = s.trim(); return /-\d+$/.test(s) ? s : s + '-1'; };
+async function fetchSet(setNum, meta){
+  const m = meta || await rb('sets/' + encodeURIComponent(setNum) + '/');
+  const rows = []; let url = 'sets/' + encodeURIComponent(m.set_num) + '/parts/?page_size=1000&inc_minifig_parts=1';
+  while (url){
+    const d = await rb(url);
+    for (const r of d.results){
+      const p = r.part || {}; const bl = ((p.external_ids||{}).BrickLink || []).map(String);
+      rows.push([p.part_num, p.name, p.part_img_url || '', bl, (r.color||{}).id, r.quantity, r.is_spare ? 1 : 0]);
+      if (r.color && !S.colors.has(r.color.id)) S.colors.set(r.color.id, {name:r.color.name, rgb:r.color.rgb});
+    }
+    url = d.next;
+  }
+  const rec = {set_num:m.set_num, name:m.name, year:m.year, num_parts:m.num_parts, img:m.set_img_url || '', rows};
+  await store.putSet(rec); S.sets.set(rec.set_num, rec); reindex(); return rec;
+}
+
+/* ───────── Brickognize ───────── */
+function shrink(file){
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file); const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1024 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(b => { URL.revokeObjectURL(url); b ? res(b) : rej(new Error('Could not read that photo.')); }, 'image/jpeg', 0.88);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Could not read that photo.')); };
+    img.src = url;
+  });
+}
+async function recognise(blob){
+  const fd = new FormData(); fd.append('query_image', blob, 'piece.jpg');
+  let res;
+  try{ res = await fetch('https://api.brickognize.com/predict/parts/?predict_color=true&top_k_items=10', {method:'POST', body:fd, headers:{Accept:'application/json'}}); }
+  catch(e){ throw new Error('No connection to Brickognize. Check your internet connection.'); }
+  if (!res.ok) throw new Error('Brickognize error ' + res.status + '. Try again in a moment.');
+  return res.json();
+}
+
+/* ───────── matching ───────── */
+function ownedFor(id){
+  const k = String(id).toLowerCase();
+  const exact = S.byBL.get(k);
+  if (exact && exact.size) return {nums:[...exact], loose:false};
+  const base = (/^\d+/.exec(k)||[])[0];
+  const near = base && S.byBase.get(base);
+  if (near && near.size) return {nums:[...near], loose:true};
+  return {nums:[], loose:false};
+}
+function setsOf(nums){ const s = new Set(); for (const n of nums) for (const o of S.parts.get(n).occ) s.add(o.set); return s; }
+function colorName(id){ const c = S.colors.get(id); return c ? c.name : 'Colour ' + id; }
+function colorDot(id){ const c = S.colors.get(id); return h('i', {style:'background:#' + (c && /^[0-9a-f]{6}$/i.test(c.rgb) ? c.rgb : '888')}); }
+
+/* ───────── Identify view ───────── */
+async function onPhoto(file){
+  if (!file) return;
+  S.cur = null; $('cands').hidden = $('colours').hidden = $('matches').hidden = true;
+  $('scan').hidden = false; $('scanImg').src = URL.createObjectURL(file);
+  $('scanMsg').replaceChildren(h('div', {class:'row'}, h('div', {class:'spin'}), 'Identifying…'));
+  try{
+    const data = await recognise(await shrink(file));
+    const items = (data.items || []).filter(i => !i.type || i.type === 'part');
+    if (!items.length){ $('scanMsg').replaceChildren(h('div', {class:'note warn'}, 'No piece recognised. Try again closer, with better light and a plain background.')); return; }
+    const colours = data.colors || (items[0] && items[0].colors) || [];
+    const predicted = colours.map(c => S.blColor.get(String(c.id))).filter(v => v != null);
+    const cands = items.map(i => ({id:i.id, name:i.name, img:i.img_url, score:i.score, ...ownedFor(i.id)}));
+    S.cur = {cands, predicted, sel:null, color:null, manual:false};
+    const owned = cands.filter(c => c.nums.length).length;
+    $('scanMsg').replaceChildren(h('div', null, h('b', null, cands[0].name), h('div', {class:'muted'}, 'Best guess, ' + Math.round(cands[0].score * 100) + '% · ' + owned + ' of ' + cands.length + ' candidates occur in your sets')));
+    const first = cands.find(c => c.nums.length && !c.loose) || cands.find(c => c.nums.length);
+    renderCands(); if (first) selectCand(first);
+    else { $('matches').hidden = false; verdict('bad', S.sets.size ? 'None of the candidates occur in your sets. Either the set is not in your list yet, or the photo was misread. Try another angle.' : 'Add your sets first, then the piece can be matched.'); $('matchList').replaceChildren(); }
+  }catch(e){ $('scanMsg').replaceChildren(h('div', {class:'note bad'}, e.message)); }
+}
+function renderCands(){
+  const c = S.cur; $('cands').hidden = false;
+  $('candList').replaceChildren(...c.cands.map(k => {
+    const n = k.nums.length ? setsOf(k.nums).size : 0;
+    return h('button', {class:'pick', 'aria-pressed': c.sel === k ? 'true' : 'false', onclick: () => selectCand(k)},
+      h('img', {class:'thumb', src:k.img || '', alt:'', loading:'lazy'}),
+      h('div', {class:'grow', style:'min-width:0'}, h('div', {class:'t'}, k.name),
+        h('div', {class:'s'}, k.id + (k.score != null ? ' · ' + Math.round(k.score * 100) + '%' : ''))),
+      n ? h('span', {class:'pill ' + (k.loose ? 'warn' : 'good')}, (k.loose ? 'variant in ' : 'in ') + n + (n === 1 ? ' set' : ' sets')) : h('span', {class:'pill off'}, 'not in your sets'));
+  }));
+}
+function selectCand(k){
+  const c = S.cur; c.sel = k; c.color = null; renderCands();
+  if (!k.nums.length){ $('colours').hidden = true; $('matches').hidden = false; verdict('bad', 'This piece does not occur in any of your sets.'); $('matchList').replaceChildren(); return; }
+  const cols = new Map();
+  for (const n of k.nums) for (const o of S.parts.get(n).occ) cols.set(o.color, (cols.get(o.color)||0) + 1);
+  c.cols = [...cols.keys()].sort((a, b) => colorName(a).localeCompare(colorName(b)));
+  const hit = c.predicted.find(p => cols.has(p));
+  c.color = c.cols.length === 1 ? c.cols[0] : (hit != null ? hit : null);
+  renderColours(); renderMatches();
+}
+function renderColours(){
+  const c = S.cur; $('colours').hidden = false;
+  $('colourChips').replaceChildren(
+    ...(c.cols.length > 1 ? [h('button', {class:'chip all', 'aria-pressed': c.color == null ? 'true' : 'false', onclick: () => { c.color = null; renderColours(); renderMatches(); }}, 'Any')] : []),
+    ...c.cols.map(id => h('button', {class:'chip', 'aria-pressed': c.color === id ? 'true' : 'false', onclick: () => { c.color = id; renderColours(); renderMatches(); }}, colorDot(id), colorName(id))));
+}
+function verdict(kind, ...kids){ const v = $('verdict'); v.className = 'note ' + kind; v.replaceChildren(...kids); }
+function renderMatches(){
+  const c = S.cur, k = c.sel; $('matches').hidden = false;
+  const per = new Map();   // set → {qty, spare, colors:Set, part}
+  for (const n of k.nums) for (const o of S.parts.get(n).occ){
+    if (c.color != null && o.color !== c.color) continue;
+    let e = per.get(o.set); if (!e){ e = {qty:0, spare:0, colors:new Set(), part:n}; per.set(o.set, e); }
+    if (o.spare) e.spare += o.qty; else e.qty += o.qty; e.colors.add(o.color);
+  }
+  const fb = findsBySet();
+  const rows = [...per.entries()].sort((a, b) => (fb.get(b[0])||0) - (fb.get(a[0])||0) || (a[1].qty + a[1].spare) - (b[1].qty + b[1].spare));
+  const what = c.color != null ? 'This piece in ' + colorName(c.color) : 'This piece';
+  if (rows.length === 1){ const st = S.sets.get(rows[0][0]); verdict('good', what + ' occurs in only one of your sets: ', h('b', null, st.name), ' (' + st.set_num.replace(/-1$/, '') + ').'); }
+  else if (c.color == null && c.cols.length > 1) verdict('warn', what + ' occurs in ' + rows.length + ' of your sets. Pick the colour above to narrow it down.');
+  else verdict('warn', what + ' occurs in ' + rows.length + ' of your sets, so it cannot be placed on its own.' + (rows.some(r => fb.get(r[0])) ? ' Sets with other found pieces are listed first.' : ''));
+  if (k.loose) $('verdict').append(' Note: matched a mould variant (' + k.nums.join(', ') + '), not the exact number ' + k.id + '.');
+  $('matchList').replaceChildren(...rows.map(([sn, e]) => {
+    const st = S.sets.get(sn), f = fb.get(sn) || 0;
+    const colours = c.color == null && e.colors.size ? ' · ' + [...e.colors].map(colorName).slice(0, 3).join(', ') + (e.colors.size > 3 ? '…' : '') : '';
+    return h('div', {class:'setrow'},
+      h('img', {class:'thumb', src:st.img, alt:'', loading:'lazy'}),
+      h('div', {class:'grow', style:'min-width:0'}, h('div', {class:'t'}, st.name),
+        h('div', {class:'s'}, st.set_num.replace(/-1$/, '') + ' · ' + (e.qty ? e.qty + '× in set' : 'spare only') + (e.qty && e.spare ? ' + ' + e.spare + ' spare' : '') + colours),
+        f ? h('span', {class:'pill good'}, f + ' found so far') : null),
+      h('button', {class:'btn small', onclick: ev => assign(sn, e, ev.currentTarget)}, 'Assign'));
+  }));
+}
+function assign(sn, e, btn){
+  const c = S.cur, p = S.parts.get(e.part);
+  const color = c.color != null ? c.color : (e.colors.size === 1 ? [...e.colors][0] : null);
+  S.finds.push({id:Date.now() + '-' + Math.random().toString(36).slice(2, 7), part:p.num, name:p.name, img:p.img, color, set:sn});
+  ls.set('bf.finds', S.finds); btn.textContent = 'Assigned ✓'; btn.disabled = true; renderChrome();
+}
+function manualSearch(q){
+  q = q.trim().toLowerCase();
+  if (q.length < 2){ if (S.cur && S.cur.manual){ S.cur = null; $('cands').hidden = $('colours').hidden = $('matches').hidden = true; } return; }
+  const words = q.split(/\s+/); const hits = [];
+  for (const p of S.parts.values()){
+    const hay = (p.num + ' ' + p.bl.join(' ') + ' ' + p.name).toLowerCase();
+    if (words.every(w => hay.includes(w))){ hits.push(p); if (hits.length >= 200) break; }
+  }
+  hits.sort((a, b) => (a.num.toLowerCase() === q ? -1 : 0) - (b.num.toLowerCase() === q ? -1 : 0) || a.name.length - b.name.length);
+  $('scan').hidden = true;
+  S.cur = {cands: hits.slice(0, 25).map(p => ({id:p.num, name:p.name, img:p.img, score:null, nums:[p.num], loose:false})), predicted:[], sel:null, color:null, manual:true};
+  $('colours').hidden = true; $('matches').hidden = true;
+  if (!S.cur.cands.length){ $('cands').hidden = false; $('candList').replaceChildren(h('div', {class:'note warn'}, 'No piece in your sets matches “' + q + '”.')); return; }
+  renderCands(); if (S.cur.cands.length === 1) selectCand(S.cur.cands[0]);
+}
+
+/* ───────── Sets view ───────── */
+function msg(el, kind, text){ el.replaceChildren(text ? h('div', {class:'note ' + kind}, text) : ''); }
+function busy(el, text){ el.replaceChildren(h('div', {class:'row muted'}, h('div', {class:'spin'}), text)); }
+async function saveKey(){
+  const k = $('apiKey').value.trim(); if (!k){ msg($('keyMsg'), 'bad', 'Paste your key first.'); return; }
+  S.key = k; busy($('keyMsg'), 'Checking key…');
+  try{ await loadColors(true); ls.set('bf.key', k); msg($('keyMsg'), 'good', 'Key works and is saved on this device.'); }
+  catch(e){ S.key = ls.get('bf.key', ''); msg($('keyMsg'), 'bad', e.message); }
+  renderChrome();
+}
+function needKey(el){ if (S.key) return false; msg(el, 'warn', 'Save your Rebrickable API key above first.'); return true; }
+function resultRow(m){
+  const have = S.sets.has(m.set_num);
+  const btn = h('button', {class:'btn small' + (have ? '' : ' primary'), disabled:have, onclick: async () => {
+    btn.disabled = true; btn.textContent = 'Loading…';
+    try{ await fetchSet(m.set_num, m); btn.textContent = 'Added ✓'; renderOwned(); renderChrome(); }
+    catch(e){ btn.disabled = false; btn.textContent = 'Add'; msg($('setMsg'), 'bad', e.message); }
+  }}, have ? 'Added ✓' : 'Add');
+  return h('div', {class:'setrow'}, h('img', {class:'thumb', src:m.set_img_url || '', alt:'', loading:'lazy'}),
+    h('div', {class:'grow', style:'min-width:0'}, h('div', {class:'t'}, m.name), h('div', {class:'s'}, m.set_num.replace(/-1$/, '') + ' · ' + m.year + ' · ' + m.num_parts + ' parts')), btn);
+}
+async function findSet(){
+  const q = $('setQ').value.trim(); if (!q || needKey($('setMsg'))) return;
+  $('setResults').replaceChildren(); busy($('setMsg'), 'Searching…');
+  try{
+    let results = [];
+    if (/^[\w.]+(-\d+)?$/.test(q) && /\d/.test(q)){ try{ results = [await rb('sets/' + encodeURIComponent(normSet(q)) + '/')]; }catch(e){ if (!e.notFound) throw e; } }
+    if (!results.length) results = (await rb('sets/?page_size=12&ordering=-year&search=' + encodeURIComponent(q))).results;
+    msg($('setMsg'), results.length ? '' : 'warn', results.length ? '' : 'No set found for “' + q + '”.');
+    $('setResults').replaceChildren(...results.map(resultRow));
+  }catch(e){ msg($('setMsg'), 'bad', e.message); }
+}
+async function bulkAdd(){
+  const nums = [...new Set($('bulk').value.split(/[\s,;]+/).filter(Boolean).map(normSet))];
+  if (!nums.length || needKey($('bulkMsg'))) return;
+  $('bulkGo').disabled = true; const failed = []; let done = 0;
+  for (const n of nums){
+    busy($('bulkMsg'), 'Loading ' + n.replace(/-1$/, '') + ' (' + (done + 1) + ' of ' + nums.length + ')…');
+    try{ if (!S.sets.has(n)) await fetchSet(n); }
+    catch(e){ if (e.notFound) failed.push(n.replace(/-1$/, '')); else { msg($('bulkMsg'), 'bad', e.message + ' Stopped after ' + done + ' sets.'); $('bulkGo').disabled = false; renderOwned(); renderChrome(); return; } }
+    done++; renderOwned(); renderChrome();
+  }
+  $('bulkGo').disabled = false;
+  msg($('bulkMsg'), failed.length ? 'warn' : 'good', failed.length ? 'Added ' + (nums.length - failed.length) + '. Not found: ' + failed.join(', ') : 'All ' + nums.length + ' sets are in your list.');
+}
+function renderOwned(){
+  const fb = findsBySet(), sets = [...S.sets.values()].sort((a, b) => a.name.localeCompare(b.name));
+  $('ownedHead').textContent = sets.length ? 'Your sets (' + sets.length + ')' : 'Your sets';
+  $('ownedList').replaceChildren(...(sets.length ? sets.map(st => {
+    const row = h('div', {class:'setrow'}, h('img', {class:'thumb', src:st.img, alt:'', loading:'lazy'}),
+      h('div', {class:'grow', style:'min-width:0'}, h('div', {class:'t'}, st.name),
+        h('div', {class:'s'}, st.set_num.replace(/-1$/, '') + ' · ' + (st.year || '') + ' · ' + st.num_parts + ' parts'),
+        fb.get(st.set_num) ? h('span', {class:'pill good'}, fb.get(st.set_num) + ' found') : null));
+    const rm = h('button', {class:'btn small danger'}, 'Remove');
+    rm.onclick = async () => {
+      if (rm.dataset.sure){ await store.delSet(st.set_num); S.sets.delete(st.set_num); reindex(); renderOwned(); renderChrome(); }
+      else { rm.dataset.sure = 1; rm.textContent = 'Really remove?'; setTimeout(() => { delete rm.dataset.sure; rm.textContent = 'Remove'; }, 3000); }
+    };
+    row.append(rm); return row;
+  }) : [h('p', {class:'muted', style:'margin:0'}, 'Nothing here yet. Add a set above; its full parts list is downloaded and stored on this device.')]));
+  $('backup').hidden = !sets.length; $('exportBox').value = sets.map(s => s.set_num.replace(/-1$/, '')).join(' ');
+}
+
+/* ───────── Found view ───────── */
+function renderFound(){
+  const groups = new Map(); for (const f of S.finds){ if (!groups.has(f.set)) groups.set(f.set, []); groups.get(f.set).push(f); }
+  $('foundEmpty').hidden = S.finds.length > 0; $('clearFound').hidden = !S.finds.length;
+  $('foundList').replaceChildren(...[...groups.entries()].sort((a, b) => b[1].length - a[1].length).map(([sn, list]) => {
+    const st = S.sets.get(sn);
+    return h('div', {class:'card'},
+      h('div', {class:'row'}, st ? h('img', {class:'thumb', src:st.img, alt:''}) : null,
+        h('div', {class:'grow'}, h('b', null, st ? st.name : sn), h('div', {class:'muted'}, sn.replace(/-1$/, '') + ' · ' + list.length + (list.length === 1 ? ' piece' : ' pieces')))),
+      h('div', {class:'list'}, list.map(f => h('div', {class:'row'},
+        h('img', {class:'thumb', src:f.img || '', alt:'', style:'width:44px;height:44px'}),
+        h('div', {class:'grow', style:'min-width:0'}, h('div', {style:'overflow-wrap:anywhere'}, f.name), h('div', {class:'muted'}, f.part + (f.color != null ? ' · ' + colorName(f.color) : ''))),
+        h('button', {class:'btn small', 'aria-label':'Remove ' + f.name, onclick: () => { S.finds = S.finds.filter(x => x.id !== f.id); ls.set('bf.finds', S.finds); renderFound(); renderChrome(); }}, '✕')))));
+  }));
+}
+
+/* ───────── chrome ───────── */
+function renderChrome(){
+  $('navSets').textContent = S.sets.size; $('navFound').textContent = S.finds.length;
+  $('hdrStat').textContent = S.sets.size ? S.sets.size + (S.sets.size === 1 ? ' set · ' : ' sets · ') + S.parts.size + ' different pieces' : '';
+  $('needSets').hidden = S.sets.size > 0;
+}
+function show(view){
+  for (const v of ['identify', 'sets', 'found']) $('v-' + v).hidden = v !== view;
+  document.querySelectorAll('nav button').forEach(b => b.dataset.view === view ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
+  if (view === 'sets') renderOwned(); if (view === 'found') renderFound();
+  window.scrollTo(0, 0);
+}
+
+document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => show(b.dataset.view)));
+for (const id of ['cam', 'lib']) $(id).addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; onPhoto(f); });
+let mt; $('manual').addEventListener('input', e => { clearTimeout(mt); mt = setTimeout(() => manualSearch(e.target.value), 200); });
+$('saveKey').addEventListener('click', saveKey);
+$('setGo').addEventListener('click', findSet);
+$('setQ').addEventListener('keydown', e => { if (e.key === 'Enter') findSet(); });
+$('bulkGo').addEventListener('click', bulkAdd);
+$('copyExport').addEventListener('click', async () => {
+  try{ await navigator.clipboard.writeText($('exportBox').value); $('copyExport').textContent = 'Copied ✓'; }
+  catch(e){ $('exportBox').select(); }
+});
+$('clearFound').addEventListener('click', e => {
+  const b = e.currentTarget;
+  if (b.dataset.sure){ delete b.dataset.sure; b.textContent = 'Clear all found pieces'; S.finds = []; ls.set('bf.finds', []); renderFound(); renderChrome(); }
+  else { b.dataset.sure = 1; b.textContent = 'Tap again to clear everything'; }
+});
+
+(async function start(){
+  $('apiKey').value = S.key;
+  await store.open();
+  try{ for (const st of await store.allSets()) S.sets.set(st.set_num, st); }catch(e){}
+  reindex(); renderChrome();
+  try{ await loadColors(false); }catch(e){}
+  if (!S.sets.size) show('sets');
+})();
+</script>
+</body>
+</html>
